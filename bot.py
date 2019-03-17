@@ -35,6 +35,8 @@ class Bot(object):
         self.player_id = "name_id"
         self.round_num = -1
 
+        
+
     def login(self, is_tournament):
         msg = { "type": "login",
         "player": "Pogodite",
@@ -63,6 +65,8 @@ class Bot(object):
         self.sock.send(msg)
 
     def bet_response(self, action, use_reserve, stake = 0):
+        print 'in bet response'
+        print action
         if action == "raise":
             msg = { "type": "bet_response",
                     "token": self.status['token'],
@@ -76,9 +80,10 @@ class Bot(object):
                     "action": action,
                     "useReserve": use_reserve
             }
+            print msg
         self.sock.send(msg)
 
-    def auction_received(self):
+    def auction_received(self): 
         data = self.sock.receive()
         self.update_status(data)
         #check type!!!!
@@ -123,6 +128,8 @@ class Bot(object):
             return 'folded'
         elif data['type']=="bankrupt":
             return 'bankrupt'
+        elif data['type']=="super_power":
+            return 'super_power'
         else:
           # We do not know the message print it out
           print "what is this!!!!"

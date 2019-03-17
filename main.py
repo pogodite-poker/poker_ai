@@ -13,7 +13,7 @@ bot.sock.empty_socket()
 try:
 
     print("logging in")
-    bot.login(False)
+    bot.login(True)
     print("logged in")
 
 
@@ -22,12 +22,13 @@ try:
         # Need to wait for status 
         print("waiting for message")
         b = bot.receive()
-        
+        print(b)
         # Get power auction.
         # Recieve auction token
         if b == "auction":
             print("Got auction")
-            bot.auction_response()
+            play.decide_auction()
+            # bot.auction_response()
             print("responding to auction")
         
         elif b == "auction_result":
@@ -35,33 +36,16 @@ try:
         
         elif b == "bet":
             print("received bet")
-
-            # TODO: make bet descision here
-            
-            # Bet response here
-            
             play.decide_bet()
-            # play.bet_setup()
-            # if play.ourStake == play.currBet:
-            #     bot.bet_response("check", False)
-            # else:
-            #     bot.bet_response("call", False)
-
             print("responding to bet")
     
             # TODO: If power add later
         elif b == "summary":
             print("received summary")
             bot.show_winner()
-            print "test shit"
 
-            if bot.status["winners"][0]["playerId"] != bot.player_id:
-                print("We didn't win :(")
-                for player in bot.status["activePlayers"]:
-                    if player["playerId"] == bot.player_id:
-                        chips_after = player["chips"]-player["stake"]
-                        if chips_after<=0:
-                            print("we done fucked it")
+
+            
             # TODO:
             # output summary to the user
             # break
@@ -70,15 +54,13 @@ try:
             bot.sock.disconnect()
             break
         elif b == "folded":
-
-            print "We have folded, because we made a bobo"
-            input()
+            print "we have folded"
         elif b == "status": 
-            print("#"*30)
+            print "receive status"
             bot.nice_show_status()
-            print("#"*30)
             # Receive bankrupt if we fucked it
-
+        elif b == "super_power": 
+            print("Received super_power")
         elif not b:
             print("is empty!!!")
             # print "b is empty" 

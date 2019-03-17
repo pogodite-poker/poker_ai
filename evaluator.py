@@ -2,7 +2,7 @@ import itertools
 from card import Card
 from deck import Deck
 from lookup import LookupTable
-
+from itertools import permutations
 class Evaluator(object):
     """
     Evaluates hand strengths using a variant of Cactus Kev's algorithm:
@@ -32,7 +32,16 @@ class Evaluator(object):
         because that's cycles!
         """
         all_cards = cards + board
-        return self.hand_size_map[len(all_cards)](all_cards)
+
+        eval_list = []
+
+        if len(all_cards)>=8:
+            pers=permutations(all_cards, 7) 
+            for p in pers:
+                eval_list.append(self.hand_size_map[len(p)](p))
+            return min(eval_list)
+        else:
+          return self.hand_size_map[len(all_cards)](all_cards)
 
     def _five(self, cards):
         """

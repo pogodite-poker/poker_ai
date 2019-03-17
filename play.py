@@ -19,17 +19,19 @@ class Play():
         self.bot = bot
         self.bluff = False
         self.evaluator = Evaluator()
+        self.leech_count = 0
+        self.count_bet = 0
 
     def bet_setup(self):
         self.hand = []
         self.table = []
         self.ourChips = 0
         self.ourStake = 0
-        self.oppStake = []
+        self.oppStake = 0
         self.oppChips = []
         self.blind = 0
         self.currBet = 0
-
+        keys = self.bot.status.keys()
         for card in self.bot.status["pocketCards"]:
             self.hand.append([card["rank"], card["suit"]])
 
@@ -39,59 +41,78 @@ class Play():
                 self.ourStake = player["stake"]
             else:
                 self.oppChips.append(player["chips"])
-                self.oppStake.append(player["stake"])
 
-        if self.oppStake:
-            self.currBet = max(self.oppStake)
-        self.blind = self.bot.status["blind"]
-
-        if "communityCards" in self.bot.status.keys():
+        if "communityCards" in keys:
             for card in self.bot.status["communityCards"]:
                 self.table.append([card["rank"], card["suit"]])
+      
+    def decide_auction(self):
+      # name, bid
+      self.bot.auction_response("leech", randint(1, 3))
 
     def decide_bet(self):
         self.bet_setup()
         if self.bot.round_num == 1:
-            print "going into first round betting"
+            # print "going into first round betting"
+            self.count_bet = 0
             self.bluff = False
             self.FirstRound()
         # TODO: Need to add table
         elif self.bot.round_num == 2:
-            print "going into flop betting"
+            #print "going into flop betting"
             self.Flop()
         elif self.bot.round_num == 3:
-            print "going into turn betting"
+            #print "going into turn betting"
             self.Turn()
         elif self.bot.round_num == 4:
-            print "going into river betting"
+            #print "going into river betting"
             self.River()
         else:
-            print "ERROR: We done fucked up"
+            pass
+            #print "ERROR: We done fucked up"
 
     # Action helpers
     def raiseIt(self, amount):
-        print "Raising by ", amount
+        self.oppStake = self.bot.status["stake"]
+        #print "Raising by = ", amount
+        self.count_bet = self.oppStake + amount 
         if amount < self.ourChips:
-            self.bot.bet_response("raise", False, amount)
+            self.bot.bet_response("raise", False, int(amount))
         else:
             self.call()
 
     def fold(self):
-        print "Folding"
-        if self.ourStake == self.currBet:
-            self.bot.bet_response("check", False)
-        else:
-            self.bot.bet_response("fold", False)
+        # print "Folding/Checking"
+        self.bot.bet_response("fold", False)
 
     def call(self):
-        print "Calling"
-        if self.ourStake != self.currBet:
-            self.bot.bet_response("call", False)
-        else:
+        # print(self.bot.status)
+        # print "calling"
+        self.oppStake = int(self.bot.status["stake"])
+        # if self.bot.round_num ==1:
+        #     if self.bot.status["roles"]["bigBlind"] == self.bot.player_id:
+        #         self.ourStake = int(self.bot.status["blinds"]["initialValue"]*2)
+        #     elif self.bot.status["roles"]["smallBlind"] == self.bot.player_id:
+        #         self.ourStake = int(self.bot.status["blinds"]["initialValue"])
+        #     elif self.bot.status["roles"]["dealer"] == self.bot.player_id:
+        #         self.ourStake = 0
+        for player in self.bot.status["activePlayers"]:
+            if player["playerId"] == self.bot.player_id:
+                self.ourChips = player["chips"]
+                self.ourStake = int(player["stake"])
+            else:
+                self.oppChips.append(player["chips"])
+        self.currBet = int(self.oppStake) - int(self.ourStake)
+        # print("currBet:", self.currBet)
+        # print("ourStake:", self.ourStake)
+        if self.currBet == 0:
+            # print "Checking"
             self.bot.bet_response("check", False)
-
+        else:
+            # print "Calling"
+            self.bot.bet_response("call", False)
     def bully(self, opponentsChips, ferocity):
-        print "bullying "
+        # print "bullying "
         self.bot.bet_response("raise", False, int(opponentsChips*ferocity))
 
     def handRank(self): # a has type [numeral,suit]
@@ -189,19 +210,20 @@ class Play():
             
         # TODO: introduce randomness
         # If the bet is too large 
-        if (self.currBet - self.ourStake) > (self.blind * 2):
+        '''
+        if self.currBet > (self.blind * 2):
             # TODO: keep track of who is doing big fuck off bets
             self.fold()
         elif self.checkHoldingShit():
-           self.fold()
+            self.fold()
         elif self.checkHoldingGold():
-             # TODO: We should raise, we are holding gold
-            self.call()
+            # TODO: We should raise, we are holding gold
+            self.raiseIt(randint(1, min(20, self.ourChips)))
+            # self.call()
         else:
             # TODO: Need to check if call is correct or check
             self.call()
         return
-        '''
 
         # # If we're the big or small blind then silly to bet (unless bullying)
         # elif stake==currBet:
@@ -214,12 +236,13 @@ class Play():
         # elif (self.handRank(hand) < mean(oppHandRank)-1.5*std(oppHandRank)):
         #     self.raiseIt(currBet*0.5)
         
-        if(self.currBet<50):
-            self.call()
-        else:
-            self.fold()
+        # if(self.currBet<50):
+        #     self.call()
+        # else:
+        #     self.fold()
     
-
+    def super_power(self, name):
+        self.bot.bet_response(name, False)
 
     def Flop(self):
         # Parameters to tune
@@ -231,9 +254,9 @@ class Play():
         x = 0.2  # Threshold to initiate bullying
         f = 0.5  # Ferocity of bullying
 
-        oppHandStrength = [1/i for i in self.getOppHandRank()]
+        #oppHandStrength = [1/i for i in self.getOppHandRank()]
         ownStrength = self.evaluateHand(n, m, self.hand)
-        likelihood = mean(oppHandStrength) - 1000
+        #likelihood = mean(oppHandStrength) - 1000
 
         '''
         # Bullying
@@ -247,19 +270,31 @@ class Play():
         if abs(self.currBet - self.ourStake) > (self.blind * 4):
             self.bully(chipNo, f)
         '''
-        # Bluffing
-        if randint(0,5)==0: # Bluff on 1/6 rounds
-            self.raiseIt(randint(1, 20))
+        # Use super powers
+        if "superPowers" in self.bot.status.keys():
+          # print self.bot.status["superPowers"]
+          if self.bot.status["superPowers"]:
+            if self.bot.status["superPowers"]["leech"] > 0:
+                  self.bot.status["superPowers"]["leech"]  -= 1
+                  self.super_power("leech")
+                  # print "WE USED A SUPER POWER"
+                  return
 
+        # Bluffing
+        #if (self.handRank() < likelihood):
+        #    self.raiseIt(self.currBet*0.5)
+        if ownStrength < 1:
+            self.fold()
         # Points at which we'll throw in the towel based on our own hand strength
         elif ((self.currBet/self.ourChips) > c and ownStrength != 2) or ((self.currBet/self.ourChips) > d and ownStrength == 0):
             self.fold()
-
-        elif (self.handRank() < likelihood):
-            self.raiseIt(self.currBet*0.5)
+        elif randint(0,5)==0: # Bluff on 1/6 rounds
+            self.raiseIt(randint(1, 20))
+        elif (((self.currBet/self.ourChips) > d and ownStrength == 1) or ((self.currBet/self.ourChips) > c and ownStrength == 2)):
+            self.call()
         else:
-            print "ERROR: no condition met folding"
-            self.fold()
+            # print "ERROR: no condition met call"
+            self.call()
 
 
 
@@ -274,35 +309,36 @@ class Play():
         x = 0.2  # Threshold to initiate bullying
         f = 0.5  # Ferocity of bullying
 
-        oppHandStrength = [1/i for i in self.getOppHandRank()]
+        #oppHandStrength = [1/i for i in self.getOppHandRank()]
         ownStrength = self.evaluateHand(n, m, self.hand)
-        likelihood = mean(oppHandStrength)-1.5*std(oppHandStrength)
+        #likelihood = mean(oppHandStrength)-1000
 
-        # Bullying
-        shouldBully, chipNo = False, 0 
-        for chips in self.oppChips: #Make sure this is only for players still in
-            if chips/self.ourChips < x: # oppChips:ourChips ratio
-                shouldBully = True
-                if chips > chipNo:
-                    chipNo = chips #Highest no. of chips we want to bully with
+        # # Bullying
+        # shouldBully, chipNo = False, 0 
+        # for chips in self.oppChips: #Make sure this is only for players still in
+        #     if chips/self.ourChips < x: # oppChips:ourChips ratio
+        #         shouldBully = True
+        #         if chips > chipNo:
+        #             chipNo = chips #Highest no. of chips we want to bully with
 
         # TODO: add bullying and bluffing
-        if abs(self.currBet - self.ourStake) > (self.blind * 4):
-            self.bully(chipNo, f)
-
+        #if self.handRank() < likelihood:
+        #    self.raiseIt(self.currBet * 0.5)
         # Bluffing
-        elif randint(0,5)==0: # Bluff on 1/6 rounds
-            self.raiseIt(randint(1,self.ourChips))
-
+        if randint(0,5) == 0: # Bluff on 1/6 rounds
+            self.raiseIt(randint(1, min(20, self.ourChips)))
+        elif ownStrength < 1:
+            self.fold()
         # Points at which we'll throw in the towel based on our own hand strength
         elif ((self.currBet/self.ourChips) > c and ownStrength != 2) or ((self.currBet/self.ourChips) > d and ownStrength == 0):
             self.fold()
-
-        elif (self.handRank() < likelihood):
-            self.raiseIt(self.currBet*0.5)
+        
+        elif (((self.currBet/self.ourChips) > d and ownStrength == 1) or ((self.currBet/self.ourChips) > c and ownStrength == 2)):
+            self.call()
+        
         else:
-            print "ERROR: no condition met folding"
-            self.fold()
+            # print "ERROR: no condition met calling"
+            self.call()
 
     def River(self):
         # Parameters to tune
@@ -314,34 +350,24 @@ class Play():
         x = 0.2  # Threshold to initiate bullying
         f = 0.5  # Ferocity of bullying
 
-        oppHandRank = self.getOppHandRank()
+        #oppHandStrength = [1/i for i in self.getOppHandRank()]
         ownStrength = self.evaluateHand(n, m, self.hand)
-
-
-        # Bullying
-        shouldBully, chipNo = False, 0 
-        for chips in self.oppChips: #Make sure this is only for players still in
-            if chips/self.ourChips < x: # oppChips:ourChips ratio
-                shouldBully = True
-                if chips > chipNo:
-                    chipNo = chips #Highest no. of chips we want to bully with
-        if shouldBully:
-            self.bully(chipNo, f)
+        #likelihood = mean(oppHandStrength)-1000
+        
+        #if self.handRank() < likelihood:
+        #    self.raiseIt(self.currBet * 0.5)
 
         # If we're the big or small blind then silly to bet (unless bullying)
-        elif self.ourStake == self.currBet:
-            self.call()
-
-        # Bluffing
-        elif randint(0,5) == 0: # Bluff on 1/6 rounds
-            self.raiseIt(randint(1, self.ourChips))
-
+        if randint(0,5) == 0: # Bluff on 1/6 rounds
+            self.raiseIt(randint(1, min(20, self.ourChips)))
+        elif ownStrength < 1:
+            self.fold()
         # Points at which we'll throw in the towel based on our own hand strength
         elif ((self.currBet/self.ourChips) > c and ownStrength != 2) or ((self.currBet/self.ourChips) > d and ownStrength == 0):
             self.fold()
-
-        elif (self.handRank() < mean(oppHandRank)-1.5*std(oppHandRank)):
-            self.raiseIt(self.currBet*0.5)
+        
+        elif (((self.currBet/self.ourChips) > d and ownStrength == 1) or ((self.currBet/self.ourChips) > c and ownStrength == 2)):
+            self.call()
         else:
-            print "ERROR: no condition met folding"
-            self.fold()
+            # print "ERROR: no condition met calling"
+            self.call()
