@@ -70,7 +70,9 @@ try:
             bot.sock.disconnect()
             break
         elif b == "folded":
+
             print "We have folded, because we made a bobo"
+            input()
         elif b == "status": 
             print("#"*30)
             bot.nice_show_status()
@@ -78,6 +80,7 @@ try:
             # Receive bankrupt if we fucked it
 
         elif not b:
+            print("is empty!!!")
             # print "b is empty" 
             # TODO: Look at recv being empty
             break

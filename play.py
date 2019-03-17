@@ -52,14 +52,18 @@ class Play():
     def decide_bet(self):
         self.bet_setup()
         if self.bot.round_num == 1:
+            print "going into first round betting"
             self.bluff = False
             self.FirstRound()
         # TODO: Need to add table
         elif self.bot.round_num == 2:
+            print "going into flop betting"
             self.Flop()
         elif self.bot.round_num == 3:
+            print "going into turn betting"
             self.Turn()
         elif self.bot.round_num == 4:
+            print "going into river betting"
             self.River()
         else:
             print "ERROR: We done fucked up"
@@ -67,7 +71,10 @@ class Play():
     # Action helpers
     def raiseIt(self, amount):
         print "Raising by ", amount
-        self.bot.bet_response("raise", False, amount)
+        if amount < self.ourChips:
+            self.bot.bet_response("raise", False, amount)
+        else:
+            self.call()
 
     def fold(self):
         print "Folding"
@@ -99,11 +106,11 @@ class Play():
         return self.evaluator.evaluate(hand_cards, table_cards)
 
     def evaluateHand(self, n, m, hand):
-        strength = self.handRank(hand)
+        strength = 1/self.handRank()
         if strength > n:
-            quality = 0
-        elif strength < m:
             quality = 2
+        elif strength < m:
+            quality = 0
         else:
             quality = 1
         return quality
@@ -157,22 +164,23 @@ class Play():
         return False
 
     def FirstRound(self):
+        
         # Parameters to tune
         b = 4 # Bluff parameter
 
         x = 0.1  # Threshold to initiate bullying
         f = 0.5  # Ferocity of bullying
-
+        '''
         # Bluffing
         if randint(0,b)==0:
             self.bluff = True
             self.raiseIt(self.currBet)
             return
-
+        
         # Bullying
         shouldBully, chipNo = False, 0 
         for chips in self.oppChips: #Make sure this is only for players still in
-            if chips/self.ourChips < x: # oppChips:ourChips ratio
+            if chips/float(self.ourChips) < x: # oppChips:ourChips ratio
                 shouldBully = True
                 if chips > chipNo:
                     chipNo = chips #Highest no. of chips we want to bully with
@@ -193,7 +201,7 @@ class Play():
             # TODO: Need to check if call is correct or check
             self.call()
         return
-        
+        '''
 
         # # If we're the big or small blind then silly to bet (unless bullying)
         # elif stake==currBet:
@@ -205,13 +213,18 @@ class Play():
 
         # elif (self.handRank(hand) < mean(oppHandRank)-1.5*std(oppHandRank)):
         #     self.raiseIt(currBet*0.5)
+        
+        if(self.currBet<50):
+            self.call()
+        else:
+            self.fold()
     
 
 
     def Flop(self):
         # Parameters to tune
-        m = 2000 # Threshold for strength
-        n = 7000 # Threshold for weakness
+        m = 1/7000 # Threshold for strength
+        n = 1/4000 # Threshold for weakness
         c = 0.2  # Threshold for us to fold on a medium hand
         d = 0.1  # Threshold for us to fold on a weak hand
 
@@ -219,10 +232,10 @@ class Play():
         f = 0.5  # Ferocity of bullying
 
         oppHandStrength = [1/i for i in self.getOppHandRank()]
-        ownStrength = 1/self.evaluateHand(n, m, self.hand)
-        likelihood = mean(oppHandRank) - 
+        ownStrength = self.evaluateHand(n, m, self.hand)
+        likelihood = mean(oppHandStrength) - 1000
 
-
+        '''
         # Bullying
         shouldBully, chipNo = False, 0 
         for chips in self.oppChips: #Make sure this is only for players still in
@@ -233,16 +246,16 @@ class Play():
         # TODO: add bullying and bluffing
         if abs(self.currBet - self.ourStake) > (self.blind * 4):
             self.bully(chipNo, f)
-
+        '''
         # Bluffing
-        elif randint(0,5)==0: # Bluff on 1/6 rounds
-            self.raiseIt(randint(1, self.ourChips))
+        if randint(0,5)==0: # Bluff on 1/6 rounds
+            self.raiseIt(randint(1, 20))
 
         # Points at which we'll throw in the towel based on our own hand strength
         elif ((self.currBet/self.ourChips) > c and ownStrength != 2) or ((self.currBet/self.ourChips) > d and ownStrength == 0):
             self.fold()
 
-        elif (self.handRank(self.hand) < likelihood):
+        elif (self.handRank() < likelihood):
             self.raiseIt(self.currBet*0.5)
         else:
             print "ERROR: no condition met folding"
@@ -253,8 +266,8 @@ class Play():
 
     def Turn(self):
         # Parameters to tune
-        m = 2000 # Threshold for strength
-        n = 7000 # Threshold for weakness
+        m = 1/7000 # Threshold for strength
+        n = 1/4000 # Threshold for weakness
         c = 0.2  # Threshold for us to fold on a medium hand
         d = 0.1  # Threshold for us to fold on a weak hand
 
@@ -262,8 +275,8 @@ class Play():
         f = 0.5  # Ferocity of bullying
 
         oppHandStrength = [1/i for i in self.getOppHandRank()]
-        ownStrength = 1/self.evaluateHand(n, m, self.hand)
-        likelihood = mean(oppHandRank)-1.5*std(oppHandRank)
+        ownStrength = self.evaluateHand(n, m, self.hand)
+        likelihood = mean(oppHandStrength)-1.5*std(oppHandStrength)
 
         # Bullying
         shouldBully, chipNo = False, 0 
@@ -279,22 +292,22 @@ class Play():
 
         # Bluffing
         elif randint(0,5)==0: # Bluff on 1/6 rounds
-            self.raiseIt(randint(1,ourChips))
+            self.raiseIt(randint(1,self.ourChips))
 
         # Points at which we'll throw in the towel based on our own hand strength
         elif ((self.currBet/self.ourChips) > c and ownStrength != 2) or ((self.currBet/self.ourChips) > d and ownStrength == 0):
             self.fold()
 
-        elif (self.handRank(hand) < likelihood):
-            self.raiseIt(currBet*0.5)
+        elif (self.handRank() < likelihood):
+            self.raiseIt(self.currBet*0.5)
         else:
             print "ERROR: no condition met folding"
             self.fold()
 
     def River(self):
         # Parameters to tune
-        m = 2000 # Threshold for strength
-        n = 7000 # Threshold for weakness
+        m = 1/7000 # Threshold for strength
+        n = 1/4000 # Threshold for weakness
         c = 0.2  # Threshold for us to fold on a medium hand
         d = 0.1  # Threshold for us to fold on a weak hand
 
@@ -316,7 +329,7 @@ class Play():
             self.bully(chipNo, f)
 
         # If we're the big or small blind then silly to bet (unless bullying)
-        elif self.outStake == self.currBet:
+        elif self.ourStake == self.currBet:
             self.call()
 
         # Bluffing
@@ -327,8 +340,8 @@ class Play():
         elif ((self.currBet/self.ourChips) > c and ownStrength != 2) or ((self.currBet/self.ourChips) > d and ownStrength == 0):
             self.fold()
 
-        elif (self.handRank(hand) < mean(oppHandRank)-1.5*std(oppHandRank)):
-            self.raiseIt(currBet*0.5)
+        elif (self.handRank() < mean(oppHandRank)-1.5*std(oppHandRank)):
+            self.raiseIt(self.currBet*0.5)
         else:
             print "ERROR: no condition met folding"
             self.fold()

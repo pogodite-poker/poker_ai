@@ -17,6 +17,8 @@ from socket import SHUT_RDWR
 
 MSGLEN = 1024
 
+
+
 def to_bytes(n, length, endianess='big'):
     h = '%x' % n
     s = ('0'*(len(h) % 2) + h).zfill(length*2).decode('hex')
@@ -50,8 +52,13 @@ class MySocket:
         print raw_data
         if not raw_data:
             return
-        length = int(struct.unpack("<i", raw_data)[0])
-        data = json.loads(self.sock.recv(length))
+        length = struct.unpack("<L", raw_data)[0]
+        json_data=self.sock.recv(length)
+        try:
+            data = json.loads(json_data)
+        except:
+            print(json_data)
+            input()
         # print(data)
         return data
 
